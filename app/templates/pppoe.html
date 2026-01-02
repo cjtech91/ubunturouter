@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-8">PPPoE Server Configuration</h1>
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-semibold mb-4">PPPoE Server Settings</h2>
+    
+    <form method="POST">
+        {% for iface in lan_interfaces %}
+        <div class="mb-6 border-b pb-4">
+            <h3 class="font-bold text-lg mb-2">{{ iface.name }}</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Enable PPPoE Server</label>
+                    <input type="checkbox" name="enable_{{ iface.name }}" {% if iface.pppoe_enabled %}checked{% endif %} class="form-checkbox h-5 w-5 text-blue-600">
+                </div>
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Local IP (Gateway)</label>
+                    <input type="text" name="local_ip_{{ iface.name }}" value="{{ iface.local_ip }}" class="border rounded px-2 py-1 w-full" placeholder="e.g. 10.0.0.1">
+                </div>
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Remote IP Start</label>
+                    <input type="text" name="remote_start_{{ iface.name }}" value="{{ iface.remote_start }}" class="border rounded px-2 py-1 w-full" placeholder="e.g. 10.0.0.2">
+                </div>
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Remote IP End</label>
+                    <input type="text" name="remote_end_{{ iface.name }}" value="{{ iface.remote_end }}" class="border rounded px-2 py-1 w-full" placeholder="e.g. 10.0.0.254">
+                </div>
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">DNS Servers</label>
+                    <input type="text" name="dns_{{ iface.name }}" value="{{ iface.dns }}" class="border rounded px-2 py-1 w-full" placeholder="e.g. 8.8.8.8, 8.8.4.4">
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not lan_interfaces %}
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+            <p>No interfaces configured as LAN. Go to <a href="/network/config" class="underline">Network Config</a> to assign LAN roles.</p>
+        </div>
+        {% endif %}
+
+        <div class="mt-6">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save PPPoE Settings</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

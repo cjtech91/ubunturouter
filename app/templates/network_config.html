@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-8">Network Configuration</h1>
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-semibold mb-4">Port Assignments</h2>
+    <form method="POST">
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-auto">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="px-4 py-2 text-left">Interface</th>
+                        <th class="px-4 py-2 text-left">Status</th>
+                        <th class="px-4 py-2 text-left">Role</th>
+                        <th class="px-4 py-2 text-left">Assignment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for iface in interfaces %}
+                    <tr class="border-b">
+                        <td class="px-4 py-2 font-mono">{{ iface.name }}</td>
+                        <td class="px-4 py-2">
+                            <span class="px-2 py-1 text-sm rounded 
+                                {% if iface.is_up %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if iface.is_up %}UP{% else %}DOWN{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2">
+                            <select name="role_{{ iface.name }}" class="border rounded px-2 py-1 w-full">
+                                <option value="lan" {% if iface.role == 'lan' %}selected{% endif %}>LAN</option>
+                                <option value="wan" {% if iface.role == 'wan' %}selected{% endif %}>WAN</option>
+                                <option value="unassigned" {% if iface.role == 'unassigned' %}selected{% endif %}>Unassigned</option>
+                            </select>
+                        </td>
+                        <td class="px-4 py-2">
+                            <input type="text" name="ip_{{ iface.name }}" value="{{ iface.assigned_ip }}" placeholder="IP Address (Optional)" class="border rounded px-2 py-1 w-full">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-6">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Apply Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ubuntu Router Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-gray-800 text-white">
+            <div class="p-4 font-bold text-xl">Ubuntu Router</div>
+            <nav class="mt-4">
+                <a href="/" class="block py-2.5 px-4 hover:bg-gray-700">Dashboard</a>
+                <a href="/network/config" class="block py-2.5 px-4 hover:bg-gray-700">Network Config</a>
+                <a href="/loadbalance" class="block py-2.5 px-4 hover:bg-gray-700">Load Balancing</a>
+                <a href="/dhcp" class="block py-2.5 px-4 hover:bg-gray-700">DHCP Server</a>
+                <a href="/pppoe" class="block py-2.5 px-4 hover:bg-gray-700">PPPoE Server</a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 p-10">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-4 p-4 rounded {% if category == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="flex justify-end mb-4">
+                <form action="{{ url_for('main.apply_config') }}" method="POST">
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold shadow-lg">
+                        Apply Configuration to System
+                    </button>
+                </form>
+            </div>
+
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>

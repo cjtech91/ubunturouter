@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-8">Load Balancing Configuration</h1>
+
+<div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-semibold mb-4">WAN Interface Weights</h2>
+    <p class="mb-4 text-gray-600">Configure weights for your WAN interfaces. Higher weight means more traffic.</p>
+    
+    <form method="POST">
+        <div class="overflow-x-auto">
+            <table class="min-w-full table-auto">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="px-4 py-2 text-left">Interface</th>
+                        <th class="px-4 py-2 text-left">Weight</th>
+                        <th class="px-4 py-2 text-left">Enabled</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for iface in wan_interfaces %}
+                    <tr class="border-b">
+                        <td class="px-4 py-2 font-mono">{{ iface.name }}</td>
+                        <td class="px-4 py-2">
+                            <input type="number" name="weight_{{ iface.name }}" value="{{ iface.weight }}" min="1" max="100" class="border rounded px-2 py-1 w-full">
+                        </td>
+                        <td class="px-4 py-2">
+                            <input type="checkbox" name="enabled_{{ iface.name }}" {% if iface.enabled %}checked{% endif %} class="form-checkbox h-5 w-5 text-blue-600">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if not wan_interfaces %}
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+            <p>No interfaces configured as WAN. Go to <a href="/network/config" class="underline">Network Config</a> to assign WAN roles.</p>
+        </div>
+        {% endif %}
+
+        <div class="mt-6">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Configuration</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
