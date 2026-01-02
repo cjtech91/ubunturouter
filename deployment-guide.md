@@ -38,7 +38,8 @@ If your server has internet access, this is the easiest way.
 2.  Clone the repository:
     ```bash
     git clone <YOUR_REPOSITORY_URL>
-    cd ubuntu-router
+    # Note: The directory name might be 'ubuntu-router' or 'ubunturouter' depending on the URL
+    cd ubuntu-router || cd ubunturouter
     ```
     *(Replace `<YOUR_REPOSITORY_URL>` with the actual URL of your git repo).*
 
