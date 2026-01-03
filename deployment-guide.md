@@ -58,18 +58,22 @@ If your server has internet access, this is the easiest way.
 ## Step 3: Run the Automated Installer
 
 We have prepared a script that installs all necessary dependencies (Python, Flask, DHCP server, PPPoE server, etc.) and sets up the web dashboard to run automatically.
+1.  navigate to the project directory:
+    ```bash
+    cd /root/ubunturouter/
+    ```
 
-1.  Make the script executable:
+2.  Make the script executable:
     ```bash
     chmod +x scripts/install.sh
     ```
 
-2.  Run the installer:
+3.  Run the installer:
     ```bash
     ./scripts/install.sh
     ```
 
-3.  **Wait for completion**. The script will:
+4.  **Wait for completion**. The script will:
     *   Update your system packages.
     *   Install system tools (`netplan`, `isc-dhcp-server`, `pppoe`).
     *   Install Python libraries.
@@ -93,7 +97,29 @@ Once the installation finishes, the script will show you the IP address to acces
 
 ---
 
-## Step 5: Post-Installation & Usage
+## Step 6: Updating the System
+
+If you have modified the code (e.g., enabling bridge support or new features) and need to update your running router:
+
+1.  **Transfer the new files** to your router (using Git pull or MobaXterm SFTP).
+2.  **Re-run the installer** to update dependencies and re-configure the network:
+    ```bash
+    cd ubuntu-router || cd ubunturouter
+    sudo ./scripts/install.sh
+    ```
+3.  **Follow the on-screen prompts** to re-select your WAN/LAN interfaces.
+    *   *New Feature*: You can now select **multiple** LAN interfaces to create a Bridge.
+
+**Quick Update (Skip Dependencies):**
+If you only want to re-configure the network without checking all installations:
+```bash
+# 1. Generate new config
+sudo ./venv/bin/python3 scripts/set_default_ip.py
+
+# 2. Apply config
+sudo ./scripts/apply_configs.sh
+```
+
 
 ### Applying Configurations
 When you make changes in the dashboard (e.g., changing LAN IP, adding Load Balancing weights), the changes are saved to a file but **not applied immediately** to the system to prevent network dropouts.

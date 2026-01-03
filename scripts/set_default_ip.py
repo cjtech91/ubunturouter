@@ -7,14 +7,15 @@ sys.path.append(os.getcwd())
 from app.services.network_service import get_network_interfaces
 from app.services.config_service import save_config, load_config
 
-def get_interface_choice(interfaces, prompt_text, exclude_list=[]):
+def get_multiple_interface_choices(interfaces, prompt_text, exclude_list=[]):
     """
-    Prompts user to select an interface from the list.
+    Prompts user to select multiple interfaces from the list.
+    Returns a list of selected interface names.
     """
     valid_interfaces = [i for i in interfaces if i['name'] != 'lo' and i['name'] not in exclude_list]
     
     if not valid_interfaces:
-        return None
+        return []
 
     print(f"\n{prompt_text}")
     for idx, iface in enumerate(valid_interfaces):
@@ -27,20 +28,38 @@ def get_interface_choice(interfaces, prompt_text, exclude_list=[]):
         ip_str = ", ".join(ip_list) if ip_list else "No IP"
         print(f"{idx + 1}. {iface['name']} ({ip_str})")
     
-    print("0. Skip / None")
+    print("0. None / Skip")
+    print("(Enter multiple numbers separated by space or comma, e.g. '1 2')")
 
     while True:
         try:
-            choice = input("Select interface number: ")
-            if choice == '0':
-                return None
-            idx = int(choice) - 1
-            if 0 <= idx < len(valid_interfaces):
-                return valid_interfaces[idx]['name']
+            choice_str = input("Select interface numbers: ")
+            if not choice_str.strip():
+                continue
+            
+            if choice_str.strip() == '0':
+                return []
+
+            choices = choice_str.replace(',', ' ').split()
+            selected_names = []
+            
+            for c in choices:
+                try:
+                    idx = int(c) - 1
+                    if 0 <= idx < len(valid_interfaces):
+                        name = valid_interfaces[idx]['name']
+                        if name not in selected_names:
+                            selected_names.append(name)
+                except ValueError:
+                    pass
+            
+            if selected_names:
+                return selected_names
             else:
-                print("Invalid selection. Try again.")
+                print("No valid interfaces selected. Try again or enter 0 to skip.")
+                
         except ValueError:
-            print("Please enter a number.")
+            print("Please enter valid numbers.")
 
 def set_default_ip():
     print("Detecting network interfaces...")
@@ -66,7 +85,8 @@ def set_default_ip():
     print("This interface will maintain its current connection (DHCP Client).")
     print("Select the interface you are currently using for SSH/Internet.")
     
-    wan_iface = get_interface_choice(interfaces, "Available Interfaces for WAN:")
+    wan_choices = get_multiple_interface_choices(interfaces, "Available Interfaces for WAN (Select 1):")
+    wan_iface = wan_choices[0] if wan_choices else None
     
     if wan_iface:
         print(f"Selected WAN: {wan_iface}")
@@ -82,23 +102,29 @@ def set_default_ip():
 
     # 2. Select LAN Interface
     print("\n[Step 2] Select LAN Interface")
-    print("This interface will be configured with Static IP: 192.168.172.1")
-    print("A DHCP Server will be enabled on this interface (192.168.172.2-254).")
+    print("Select interfaces to be part of the LAN Bridge (Static IP: 192.168.172.1).")
+    print("A DHCP Server will be enabled on the bridge (192.168.172.2-254).")
     
     exclude_list = [wan_iface] if wan_iface else []
-    lan_iface = get_interface_choice(interfaces, "Available Interfaces for LAN:", exclude_list)
+    lan_choices = get_multiple_interface_choices(interfaces, "Available Interfaces for LAN:", exclude_list)
     
-    if lan_iface:
-        print(f"Selected LAN: {lan_iface}")
-        config['network'][lan_iface] = {
-            'role': 'lan',
-            'ip': '192.168.172.1'
-        }
-        config['dhcp'][lan_iface] = {
-            'enabled': True,
-            'start': '192.168.172.2',
-            'end': '192.168.172.254'
-        }
+    if lan_choices:
+        print(f"Selected LAN Interfaces: {', '.join(lan_choices)}")
+        
+        # Configure each LAN interface
+        for idx, iface in enumerate(lan_choices):
+            config['network'][iface] = {
+                'role': 'lan',
+                'ip': '192.168.172.1'
+            }
+            # Only enable DHCP on the first one (config_service will map it to br0)
+            # This avoids duplicate DHCP scopes if config_service isn't fully robust
+            if idx == 0:
+                config['dhcp'][iface] = {
+                    'enabled': True,
+                    'start': '192.168.172.2',
+                    'end': '192.168.172.254'
+                }
     else:
         print("No LAN interface selected.")
 
@@ -108,10 +134,8 @@ def set_default_ip():
     wifi_iface = None
     for iface in interfaces:
         # Simple heuristic: name starts with w (wlan0, wlp3s0) or has wireless extension
-        # Ideally, we should check 'is_wireless' from psutil/netifaces if available, 
-        # but our get_network_interfaces implementation might not fully capture it without 'iw'
-        # For now, relying on naming convention or iface data if available.
-        if iface['name'].startswith('w') and iface['name'] != wan_iface and iface['name'] != lan_iface:
+        # Check if not already used
+        if iface['name'].startswith('w') and iface['name'] != wan_iface and iface['name'] not in (lan_choices or []):
              wifi_iface = iface['name']
              break
     

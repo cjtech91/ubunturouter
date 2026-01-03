@@ -1,0 +1,6 @@
+# PPPoE Server Configuration
+# Interface: br0
+require-chap
+lcp-echo-interval 10
+lcp-echo-failure 2
+ms-dns 8.8.8.8

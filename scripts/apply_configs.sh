@@ -32,9 +32,12 @@ fi
 if [ -f "$GENERATED_DIR/pppoe-server-options" ]; then
     echo "Updating PPPoE config..."
     sudo cp "$GENERATED_DIR/pppoe-server-options" "$PPPOE_DIR/pppoe-server-options"
-    # Restart PPPoE server (if service exists, or kill/start process)
-    # For now, assuming a service or manual start. 
-    # Real implementation might need more specific commands.
+    
+    if [ -f "$GENERATED_DIR/start_pppoe.sh" ]; then
+        echo "Starting PPPoE Servers..."
+        sudo chmod +x "$GENERATED_DIR/start_pppoe.sh"
+        sudo "$GENERATED_DIR/start_pppoe.sh"
+    fi
 fi
 
 # Apply Hostapd (WiFi AP)

@@ -125,8 +125,10 @@ def dhcp():
     
     # Filter LAN interfaces
     lan_interfaces = []
+    has_lan = False
     for iface_name, settings in network_settings.items():
         if settings.get('role') == 'lan':
+            has_lan = True
             if_settings = dhcp_settings.get(iface_name, {})
             lan_interfaces.append({
                 'name': iface_name,
@@ -135,6 +137,18 @@ def dhcp():
                 'range_end': if_settings.get('end', ''),
                 'lease_time': if_settings.get('lease', 86400)
             })
+    
+    # Add Bridge Interface (br0) if there are LAN interfaces
+    if has_lan:
+        br_settings = dhcp_settings.get('br0', {})
+        # Insert at the beginning
+        lan_interfaces.insert(0, {
+            'name': 'br0',
+            'dhcp_enabled': br_settings.get('enabled', False),
+            'range_start': br_settings.get('start', ''),
+            'range_end': br_settings.get('end', ''),
+            'lease_time': br_settings.get('lease', 86400)
+        })
             
     if request.method == 'POST':
         new_dhcp_settings = {}
@@ -160,8 +174,10 @@ def pppoe():
     
     # Filter LAN interfaces
     lan_interfaces = []
+    has_lan = False
     for iface_name, settings in network_settings.items():
         if settings.get('role') == 'lan':
+            has_lan = True
             if_settings = pppoe_settings.get(iface_name, {})
             lan_interfaces.append({
                 'name': iface_name,
@@ -171,6 +187,18 @@ def pppoe():
                 'remote_end': if_settings.get('remote_end', ''),
                 'dns': if_settings.get('dns', '8.8.8.8, 8.8.4.4')
             })
+
+    # Add Bridge Interface (br0) if there are LAN interfaces
+    if has_lan:
+        br_settings = pppoe_settings.get('br0', {})
+        lan_interfaces.insert(0, {
+            'name': 'br0',
+            'pppoe_enabled': br_settings.get('enabled', False),
+            'local_ip': br_settings.get('local_ip', ''),
+            'remote_start': br_settings.get('remote_start', ''),
+            'remote_end': br_settings.get('remote_end', ''),
+            'dns': br_settings.get('dns', '8.8.8.8, 8.8.4.4')
+        })
             
     if request.method == 'POST':
         new_pppoe_settings = {}

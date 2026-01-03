@@ -255,24 +255,43 @@ def generate_dhcp_default_config(config):
 
 def generate_pppoe_config(config):
     """
-    Generates PPPoE Server config (rp-pppoe)
+    Generates PPPoE Server config (rp-pppoe) and startup script
     """
     pppoe_settings = config.get('pppoe', {})
-    content = "# PPPoE Server Configuration\n"
+    
+    # 1. Generate options file
+    options_content = "# PPPoE Server Configuration\n"
+    options_content += "require-chap\n"
+    options_content += "lcp-echo-interval 10\n"
+    options_content += "lcp-echo-failure 2\n"
+    
+    # Use the first DNS found (limitation of global options file)
+    dns_set = False
+    for iface, settings in pppoe_settings.items():
+        if settings.get('enabled') and not dns_set:
+             options_content += f"ms-dns {settings.get('dns', '8.8.8.8')}\n"
+             dns_set = True
+             
+    with open(os.path.join(GENERATED_DIR, 'pppoe-server-options'), 'w') as f:
+        f.write(options_content)
+
+    # 2. Generate Startup Script
+    script_content = "#!/bin/bash\n# Start PPPoE Servers\n\n"
+    script_content += "killall pppoe-server 2>/dev/null\n\n"
     
     for iface, settings in pppoe_settings.items():
         if settings.get('enabled'):
             local_ip = settings.get('local_ip')
             remote_start = settings.get('remote_start')
-            content += f"# Interface: {iface}\n"
-            content += f"require-chap\n"
-            content += f"lcp-echo-interval 10\n"
-            content += f"lcp-echo-failure 2\n"
-            content += f"ms-dns {settings.get('dns')}\n"
-            # Note: Real PPPoE config is more complex and involves multiple files (pap-secrets, pppoe-server-options)
-    
-    with open(os.path.join(GENERATED_DIR, 'pppoe-server-options'), 'w') as f:
-        f.write(content)
+            # Assuming remote_end isn't strictly used by pppoe-server cli, it uses -N for count. 
+            # But usually we just pass -R remote_start. 
+            # pppoe-server -I <iface> -L <local> -R <remote_start> -O /etc/ppp/pppoe-server-options
+            
+            script_content += f"echo 'Starting PPPoE on {iface}...'\n"
+            script_content += f"pppoe-server -I {iface} -L {local_ip} -R {remote_start} -O /etc/ppp/pppoe-server-options\n"
+            
+    with open(os.path.join(GENERATED_DIR, 'start_pppoe.sh'), 'w') as f:
+        f.write(script_content)
 
 def generate_loadbalance_script(config):
     """
