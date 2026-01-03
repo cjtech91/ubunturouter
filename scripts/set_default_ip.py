@@ -102,7 +102,49 @@ def set_default_ip():
     else:
         print("No LAN interface selected.")
 
-    if not wan_iface and not lan_iface:
+    # 3. Configure WiFi Hotspot (Auto-detect)
+    print("\n[Step 3] Configuring WiFi Hotspot")
+    
+    wifi_iface = None
+    for iface in interfaces:
+        # Simple heuristic: name starts with w (wlan0, wlp3s0) or has wireless extension
+        # Ideally, we should check 'is_wireless' from psutil/netifaces if available, 
+        # but our get_network_interfaces implementation might not fully capture it without 'iw'
+        # For now, relying on naming convention or iface data if available.
+        if iface['name'].startswith('w') and iface['name'] != wan_iface and iface['name'] != lan_iface:
+             wifi_iface = iface['name']
+             break
+    
+    if wifi_iface:
+        print(f"Found Wireless Interface: {wifi_iface}")
+        print("Configuring Hotspot: SSID='sharplink', Security=Open")
+        print("Bridging WiFi to LAN (IP: 192.168.172.1)")
+        
+        config['network'][wifi_iface] = {
+            'role': 'lan',
+            'ip': '192.168.172.1', # Same as LAN IP because it's bridged
+            'ssid': 'sharplink',
+            # 'psk': None, # Open security
+            'channel': '6'
+        }
+        # DHCP is already handled by the LAN interface config which now applies to br0
+        # We don't need a separate DHCP entry for wifi_iface if it's bridged and the bridge has DHCP
+        
+        # However, our current DHCP generation iterates over interfaces.
+        # We need to make sure DHCP is bound to 'br0' instead of individual interfaces?
+        # Or simply bind to the bridge interface name if it exists.
+        
+        # NOTE: The config_service logic needs to be smart enough to bind DHCP to br0 if bridging is active.
+        # For now, we will add dhcp config to the wifi interface as a placeholder, 
+        # but the generator should probably merge them.
+        
+        # Actually, simpler: Since we set role='lan' and ip='192.168.172.1', 
+        # the bridge logic in config_service will pick this up and add br0 with this IP.
+        # We just need to ensure the DHCP server listens on 'br0'.
+    else:
+        print("No suitable wireless interface found for Hotspot.")
+
+    if not wan_iface and not lan_iface and not wifi_iface:
         print("\nNo interfaces configured. Exiting.")
         return
 

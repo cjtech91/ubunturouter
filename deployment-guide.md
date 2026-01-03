@@ -37,7 +37,7 @@ If your server has internet access, this is the easiest way.
     ```
 2.  Clone the repository:
     ```bash
-    git clone <YOUR_REPOSITORY_URL>
+    git clone https://github.com/cjtech91/ubunturouter.git
     # Note: The directory name might be 'ubuntu-router' or 'ubunturouter' depending on the URL
     cd ubuntu-router || cd ubunturouter
     ```
