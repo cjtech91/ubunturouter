@@ -7,6 +7,41 @@ sys.path.append(os.getcwd())
 from app.services.network_service import get_network_interfaces
 from app.services.config_service import save_config, load_config
 
+def get_interface_choice(interfaces, prompt_text, exclude_list=[]):
+    """
+    Prompts user to select an interface from the list.
+    """
+    valid_interfaces = [i for i in interfaces if i['name'] != 'lo' and i['name'] not in exclude_list]
+    
+    if not valid_interfaces:
+        return None
+
+    print(f"\n{prompt_text}")
+    for idx, iface in enumerate(valid_interfaces):
+        # Format IP addresses for display
+        ip_list = []
+        for addr in iface.get('addresses', []):
+            if addr.get('family') == 'IPv4':
+                ip_list.append(addr.get('address'))
+        
+        ip_str = ", ".join(ip_list) if ip_list else "No IP"
+        print(f"{idx + 1}. {iface['name']} ({ip_str})")
+    
+    print("0. Skip / None")
+
+    while True:
+        try:
+            choice = input("Select interface number: ")
+            if choice == '0':
+                return None
+            idx = int(choice) - 1
+            if 0 <= idx < len(valid_interfaces):
+                return valid_interfaces[idx]['name']
+            else:
+                print("Invalid selection. Try again.")
+        except ValueError:
+            print("Please enter a number.")
+
 def set_default_ip():
     print("Detecting network interfaces...")
     try:
@@ -15,59 +50,66 @@ def set_default_ip():
         print(f"Error detecting interfaces: {e}")
         return
 
-    target_iface = None
+    # Load existing config
+    config = load_config()
+    if 'network' not in config:
+        config['network'] = {}
+    if 'dhcp' not in config:
+        config['dhcp'] = {}
+
+    print("\n==========================================")
+    print("  Network Interface Configuration")
+    print("==========================================")
     
-    # Priority 1: Wired Ethernet (usually starts with e, like eth0, enp3s0, end0)
-    for iface in interfaces:
-        name = iface['name']
-        if name == 'lo': continue
-        if iface.get('is_wireless'): continue
-        
-        if name.startswith(('e', 'en', 'eth')):
-            target_iface = name
-            break
-            
-    # Priority 2: Any non-wireless, non-loopback
-    if not target_iface:
-        for iface in interfaces:
-            if iface['name'] == 'lo': continue
-            if not iface.get('is_wireless'):
-                target_iface = iface['name']
-                break
-
-    # Priority 3: Anything else (fallback)
-    if not target_iface and interfaces:
-        for iface in interfaces:
-             if iface['name'] != 'lo':
-                target_iface = iface['name']
-                break
-
-    if target_iface:
-        print(f"Found primary interface: {target_iface}")
-        print(f"Configuring {target_iface} as WAN (DHCP Client) to preserve current access.")
-        
-        config = load_config()
-        if 'network' not in config:
-            config['network'] = {}
-        if 'dhcp' not in config:
-            config['dhcp'] = {}
-            
-        # Set the network configuration to WAN (DHCP)
-        # This assumes the interface is currently getting an IP via DHCP
-        config['network'][target_iface] = {
+    # 1. Select WAN Interface
+    print("\n[Step 1] Select WAN Interface")
+    print("This interface will maintain its current connection (DHCP Client).")
+    print("Select the interface you are currently using for SSH/Internet.")
+    
+    wan_iface = get_interface_choice(interfaces, "Available Interfaces for WAN:")
+    
+    if wan_iface:
+        print(f"Selected WAN: {wan_iface}")
+        config['network'][wan_iface] = {
             'role': 'wan',
-            'ip': '' # Empty IP implies DHCP in our config logic
+            'ip': '' # Empty IP implies DHCP
         }
-        
-        # Ensure DHCP server is NOT enabled on this WAN interface
-        if target_iface in config['dhcp']:
-            del config['dhcp'][target_iface]
-        
-        # Save triggers the generation of configs
-        save_config(config)
-        print("Configuration generated successfully.")
+        # Disable DHCP server on WAN
+        if wan_iface in config['dhcp']:
+            del config['dhcp'][wan_iface]
     else:
-        print("Error: No suitable network interface found to configure.")
+        print("No WAN interface selected.")
+
+    # 2. Select LAN Interface
+    print("\n[Step 2] Select LAN Interface")
+    print("This interface will be configured with Static IP: 192.168.172.1")
+    print("A DHCP Server will be enabled on this interface (192.168.172.2-254).")
+    
+    exclude_list = [wan_iface] if wan_iface else []
+    lan_iface = get_interface_choice(interfaces, "Available Interfaces for LAN:", exclude_list)
+    
+    if lan_iface:
+        print(f"Selected LAN: {lan_iface}")
+        config['network'][lan_iface] = {
+            'role': 'lan',
+            'ip': '192.168.172.1'
+        }
+        config['dhcp'][lan_iface] = {
+            'enabled': True,
+            'start': '192.168.172.2',
+            'end': '192.168.172.254'
+        }
+    else:
+        print("No LAN interface selected.")
+
+    if not wan_iface and not lan_iface:
+        print("\nNo interfaces configured. Exiting.")
+        return
+
+    # Save Configuration
+    print("\nGenerating configuration files...")
+    save_config(config)
+    print("Configuration generated successfully.")
 
 if __name__ == '__main__':
     set_default_ip()
