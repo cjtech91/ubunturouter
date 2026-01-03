@@ -27,11 +27,34 @@
                             </span>
                         </td>
                         <td class="px-4 py-2">
-                            <select name="role_{{ iface.name }}" class="border rounded px-2 py-1 w-full">
-                                <option value="lan" {% if iface.role == 'lan' %}selected{% endif %}>LAN</option>
-                                <option value="wan" {% if iface.role == 'wan' %}selected{% endif %}>WAN</option>
+                            <select name="role_{{ iface.name }}" class="border rounded px-2 py-1 w-full" onchange="toggleWifiFields('{{ iface.name }}', this.value, {{ 'true' if iface.is_wireless else 'false' }})">
+                                <option value="lan" {% if iface.role == 'lan' %}selected{% endif %}>LAN {% if iface.is_wireless %}(Hotspot){% endif %}</option>
+                                <option value="wan" {% if iface.role == 'wan' %}selected{% endif %}>WAN {% if iface.is_wireless %}(Client){% endif %}</option>
                                 <option value="unassigned" {% if iface.role == 'unassigned' %}selected{% endif %}>Unassigned</option>
                             </select>
+
+                            {% if iface.is_wireless %}
+                            <div id="wifi_fields_{{ iface.name }}" class="mt-2 p-2 bg-gray-50 rounded text-sm {% if iface.role == 'unassigned' %}hidden{% endif %}">
+                                <div class="mb-2">
+                                    <label class="block text-xs font-bold mb-1">SSID</label>
+                                    <input type="text" name="ssid_{{ iface.name }}" value="{{ iface.wifi_ssid }}" class="border rounded px-2 py-1 w-full">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="block text-xs font-bold mb-1">Password</label>
+                                    <input type="password" name="psk_{{ iface.name }}" value="{{ iface.wifi_psk }}" class="border rounded px-2 py-1 w-full">
+                                </div>
+                                <div id="wifi_ap_fields_{{ iface.name }}" class="{% if iface.role != 'lan' %}hidden{% endif %}">
+                                    <label class="block text-xs font-bold mb-1">Channel</label>
+                                    <select name="channel_{{ iface.name }}" class="border rounded px-2 py-1 w-full">
+                                        <option value="6" {% if iface.wifi_channel == '6' %}selected{% endif %}>6 (2.4GHz)</option>
+                                        <option value="1" {% if iface.wifi_channel == '1' %}selected{% endif %}>1 (2.4GHz)</option>
+                                        <option value="11" {% if iface.wifi_channel == '11' %}selected{% endif %}>11 (2.4GHz)</option>
+                                        <option value="36" {% if iface.wifi_channel == '36' %}selected{% endif %}>36 (5GHz)</option>
+                                        <option value="40" {% if iface.wifi_channel == '40' %}selected{% endif %}>40 (5GHz)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            {% endif %}
                         </td>
                         <td class="px-4 py-2">
                             <input type="text" name="ip_{{ iface.name }}" value="{{ iface.assigned_ip }}" placeholder="IP Address (Optional)" class="border rounded px-2 py-1 w-full">
@@ -46,4 +69,27 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleWifiFields(ifaceName, role, isWireless) {
+    if (!isWireless) return;
+    
+    const fieldsDiv = document.getElementById(`wifi_fields_${ifaceName}`);
+    const apFieldsDiv = document.getElementById(`wifi_ap_fields_${ifaceName}`);
+    
+    if (role === 'unassigned') {
+        fieldsDiv.classList.add('hidden');
+    } else {
+        fieldsDiv.classList.remove('hidden');
+        
+        if (role === 'lan') {
+            apFieldsDiv.classList.remove('hidden');
+        } else {
+            apFieldsDiv.classList.add('hidden');
+        }
+    }
+}
+</script>
 {% endblock %}

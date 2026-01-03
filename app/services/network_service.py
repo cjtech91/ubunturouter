@@ -1,6 +1,19 @@
 import psutil
 import socket
 import platform
+import os
+
+def is_wireless(interface_name):
+    """
+    Checks if an interface is wireless.
+    Works by checking for the existence of /sys/class/net/<iface>/wireless directory
+    or by common naming conventions if /sys is not available (e.g. windows/dev env).
+    """
+    if platform.system() == 'Linux':
+        return os.path.exists(f'/sys/class/net/{interface_name}/wireless')
+    else:
+        # Fallback for dev environment
+        return interface_name.startswith('wl') or 'wi' in interface_name.lower()
 
 def get_network_interfaces():
     """
@@ -16,6 +29,7 @@ def get_network_interfaces():
             'is_up': stat.isup,
             'speed': stat.speed,
             'mtu': stat.mtu,
+            'is_wireless': is_wireless(name),
             'addresses': []
         }
 

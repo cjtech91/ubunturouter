@@ -50,6 +50,21 @@ def network_config():
                 if iface not in network_settings:
                     network_settings[iface] = {}
                 network_settings[iface]['ip'] = value
+            elif key.startswith('ssid_'):
+                iface = key.replace('ssid_', '')
+                if iface not in network_settings:
+                    network_settings[iface] = {}
+                network_settings[iface]['ssid'] = value
+            elif key.startswith('psk_'):
+                iface = key.replace('psk_', '')
+                if iface not in network_settings:
+                    network_settings[iface] = {}
+                network_settings[iface]['psk'] = value
+            elif key.startswith('channel_'):
+                iface = key.replace('channel_', '')
+                if iface not in network_settings:
+                    network_settings[iface] = {}
+                network_settings[iface]['channel'] = value
         
         config['network'] = network_settings
         save_config(config)
@@ -64,6 +79,9 @@ def network_config():
         if iface['name'] in current_settings:
             iface['role'] = current_settings[iface['name']].get('role', 'unassigned')
             iface['assigned_ip'] = current_settings[iface['name']].get('ip', '')
+            iface['wifi_ssid'] = current_settings[iface['name']].get('ssid', '')
+            iface['wifi_psk'] = current_settings[iface['name']].get('psk', '')
+            iface['wifi_channel'] = current_settings[iface['name']].get('channel', '6')
             
     return render_template('network_config.html', interfaces=interfaces)
 

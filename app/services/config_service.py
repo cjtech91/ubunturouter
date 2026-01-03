@@ -4,6 +4,10 @@ import os
 CONFIG_FILE = 'config/settings.json'
 GENERATED_DIR = 'generated'
 
+# Ensure directories exist
+os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+os.makedirs(GENERATED_DIR, exist_ok=True)
+
 def load_config():
     if not os.path.exists(CONFIG_FILE):
         return {}
@@ -20,8 +24,10 @@ def save_config(config):
     # Auto-generate system configs on save
     generate_netplan_config(config)
     generate_dhcp_config(config)
+    generate_dhcp_default_config(config)
     generate_pppoe_config(config)
     generate_loadbalance_script(config)
+    generate_hostapd_config(config)
 
 def generate_netplan_config(config):
     """
@@ -32,38 +38,108 @@ def generate_netplan_config(config):
         'network': {
             'version': 2,
             'renderer': 'networkd',
-            'ethernets': {}
+            'ethernets': {},
+            'wifis': {}
         }
     }
+    
+    # Check if we need to remove empty sections
+    has_ethernet = False
+    has_wifi = False
 
     for iface, settings in network.items():
         role = settings.get('role')
         ip = settings.get('ip')
+        is_wifi = settings.get('ssid') is not None # Basic heuristic, or we could pass interface type from frontend
+        # Ideally we should use backend detection, but config doesn't store 'is_wireless'. 
+        # We can infer: if it has SSID/PSK and role is WAN (Client), it goes to 'wifis' block in netplan.
+        # If role is LAN (AP), hostapd handles it, so we just give it a static IP in 'ethernets' or 'wifis' block but without access-points config?
+        # Actually, for hostapd, we usually don't let netplan manage the wifi connection, just the IP.
+        # But netplan needs to know the interface exists.
+        
+        # Let's try to detect if it's wifi based on settings keys presence
+        ssid = settings.get('ssid')
+        psk = settings.get('psk')
+        
+        iface_config = {}
         
         if role == 'wan':
-            # WAN usually gets IP via DHCP from ISP or static
-            # For simplicity, assuming DHCP if no IP provided
             if ip:
-                netplan['network']['ethernets'][iface] = {
-                    'addresses': [ip] if '/' in ip else [f"{ip}/24"],
-                    'dhcp4': False
-                }
+                iface_config['addresses'] = [ip] if '/' in ip else [f"{ip}/24"]
+                iface_config['dhcp4'] = False
             else:
-                netplan['network']['ethernets'][iface] = {
-                    'dhcp4': True
+                iface_config['dhcp4'] = True
+            
+            # If it's a WiFi Client (WAN)
+            if ssid and psk: 
+                has_wifi = True
+                iface_config['access-points'] = {
+                    ssid: {'password': psk}
                 }
+                netplan['network']['wifis'][iface] = iface_config
+                continue # Skip adding to ethernets
+
         elif role == 'lan':
             if ip:
-                netplan['network']['ethernets'][iface] = {
-                    'addresses': [ip] if '/' in ip else [f"{ip}/24"],
-                    'dhcp4': False
-                }
+                iface_config['addresses'] = [ip] if '/' in ip else [f"{ip}/24"]
+                iface_config['dhcp4'] = False
+            
+            # If it's a WiFi AP (LAN), Netplan just sets the IP. Hostapd handles the rest.
+            # However, Netplan might complain if we put a wireless interface in 'ethernets'.
+            # We should probably put it in 'wifis' but with empty access-points or just 'dhcp4: false'.
+            # A safer bet for AP mode is to treat it as a standard interface in netplan without AP config.
+            # But we can't easily know if it's wireless here without the 'is_wireless' flag stored.
+            # For now, we'll put everything in 'ethernets' unless it has client-mode wifi config.
+            pass
+
+        iface_config['optional'] = True # Prevent boot hang if interface missing
+        
+        # If we successfully identified it as a WiFi Client, we already 'continue'd.
+        # So here we add to ethernets (or wifis if we knew it was wifi but AP mode).
+        # Note: Netplan usually requires wireless interfaces to be under 'wifis'.
+        # We might need to look up if it's wireless using network_service if possible, 
+        # or just try to be smart.
+        # IMPORTANT: For this demo, we'll assume if it has 'ssid' it's wifi.
+        if ssid: 
+            has_wifi = True
+            netplan['network']['wifis'][iface] = iface_config
+        else:
+            has_ethernet = True
+            netplan['network']['ethernets'][iface] = iface_config
+
+    if not has_ethernet:
+        del netplan['network']['ethernets']
+    if not has_wifi:
+        del netplan['network']['wifis']
     
     # Write to file
     with open(os.path.join(GENERATED_DIR, '01-netcfg.yaml'), 'w') as f:
-        # Simple YAML dump (avoiding pyyaml dependency for this demo)
         f.write("# This file is generated by Ubuntu Router UI\n")
-        f.write(json.dumps(netplan, indent=2)) # Using JSON as valid YAML subset for simplicity
+        f.write(json.dumps(netplan, indent=2))
+
+def generate_hostapd_config(config):
+    """
+    Generates hostapd.conf for WiFi AP mode
+    """
+    network = config.get('network', {})
+    content = ""
+    
+    for iface, settings in network.items():
+        # Only for LAN role with SSID set (implies AP mode)
+        if settings.get('role') == 'lan' and settings.get('ssid'):
+            content += f"interface={iface}\n"
+            content += f"driver=nl80211\n"
+            content += f"ssid={settings.get('ssid')}\n"
+            content += f"hw_mode=g\n"
+            content += f"channel={settings.get('channel', '6')}\n"
+            content += f"wpa=2\n"
+            content += f"wpa_passphrase={settings.get('psk')}\n"
+            content += f"wpa_key_mgmt=WPA-PSK\n"
+            content += f"rsn_pairwise=CCMP\n"
+            content += "\n"
+            
+    with open(os.path.join(GENERATED_DIR, 'hostapd.conf'), 'w') as f:
+        f.write(content)
 
 def generate_dhcp_config(config):
     """
@@ -86,6 +162,24 @@ def generate_dhcp_config(config):
                 content += f"}}\n\n"
 
     with open(os.path.join(GENERATED_DIR, 'dhcpd.conf'), 'w') as f:
+        f.write(content)
+
+def generate_dhcp_default_config(config):
+    """
+    Generates /etc/default/isc-dhcp-server file to specify interfaces
+    """
+    dhcp_settings = config.get('dhcp', {})
+    interfaces = []
+    
+    for iface, settings in dhcp_settings.items():
+        if settings.get('enabled'):
+            interfaces.append(iface)
+            
+    iface_str = " ".join(interfaces)
+    content = f'INTERFACESv4="{iface_str}"\n'
+    content += 'INTERFACESv6=""\n'
+    
+    with open(os.path.join(GENERATED_DIR, 'isc-dhcp-server'), 'w') as f:
         f.write(content)
 
 def generate_pppoe_config(config):

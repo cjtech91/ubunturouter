@@ -11,7 +11,8 @@ sudo apt-get update
 # Note: 'pppoe' package usually contains pppoe-server command. 
 # Added build-essential and python3-dev for compiling python extensions (psutil)
 # Added python3-full for venv support
-sudo apt-get install -y python3-full python3-dev build-essential netplan.io isc-dhcp-server pppoe iproute2
+# Added hostapd for WiFi Hotspot support
+sudo apt-get install -y python3-full python3-dev build-essential netplan.io isc-dhcp-server pppoe iproute2 hostapd wireless-tools iw
 
 # Create application directory structure if not exists (assuming running from repo root)
 echo "[2/5] Setting up application environment..."
@@ -60,14 +61,37 @@ sudo systemctl daemon-reload
 sudo systemctl enable ubuntu-router
 sudo systemctl restart ubuntu-router
 
+# Make scripts executable
+chmod +x scripts/*.sh
+
+echo "=========================================="
+echo "  Initial Network Configuration"
+echo "=========================================="
+echo "Setting up default LAN IP: 192.168.172.1"
+./venv/bin/python3 scripts/set_default_ip.py
+
 # Get IP address (try to get the first non-loopback IP)
-IP_ADDR=$(hostname -I | awk '{print $1}')
+CURRENT_IP=$(hostname -I | awk '{print $1}')
+
+echo ""
+echo "WARNING: Applying this configuration will set the primary interface to 192.168.172.1."
+echo "If you are connected via SSH on this interface, YOU WILL BE DISCONNECTED."
+read -p "Do you want to apply this configuration now? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Applying network configuration..."
+    sudo ./scripts/apply_configs.sh
+    echo "Configuration applied."
+    echo "You can now access the dashboard at: http://192.168.172.1"
+else
+    echo "Configuration generated but NOT applied."
+    echo "You can apply it later by running: sudo ./scripts/apply_configs.sh"
+    echo "Dashboard currently available at: http://$CURRENT_IP"
+fi
 
 echo "=========================================="
 echo "  Installation Complete!"
 echo "=========================================="
-echo "Dashboard available at: http://$IP_ADDR"
-echo ""
 echo "Note: If you cannot access the dashboard, check firewall settings:"
 echo "      sudo ufw allow 80/tcp"
 echo ""
