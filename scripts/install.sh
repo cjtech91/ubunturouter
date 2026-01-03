@@ -67,27 +67,16 @@ chmod +x scripts/*.sh
 echo "=========================================="
 echo "  Initial Network Configuration"
 echo "=========================================="
-echo "Setting up default LAN IP: 192.168.172.1"
+echo "Initializing configuration..."
 ./venv/bin/python3 scripts/set_default_ip.py
 
 # Get IP address (try to get the first non-loopback IP)
 CURRENT_IP=$(hostname -I | awk '{print $1}')
 
 echo ""
-echo "WARNING: Applying this configuration will set the primary interface to 192.168.172.1."
-echo "If you are connected via SSH on this interface, YOU WILL BE DISCONNECTED."
-read -p "Do you want to apply this configuration now? (y/N) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Applying network configuration..."
-    sudo ./scripts/apply_configs.sh
-    echo "Configuration applied."
-    echo "You can now access the dashboard at: http://192.168.172.1"
-else
-    echo "Configuration generated but NOT applied."
-    echo "You can apply it later by running: sudo ./scripts/apply_configs.sh"
-    echo "Dashboard currently available at: http://$CURRENT_IP"
-fi
+echo "Configuration initialized."
+echo "The dashboard will be available at your current IP address: http://$CURRENT_IP"
+echo ""
 
 echo "=========================================="
 echo "  Installation Complete!"

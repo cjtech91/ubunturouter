@@ -44,8 +44,7 @@ def set_default_ip():
 
     if target_iface:
         print(f"Found primary interface: {target_iface}")
-        print(f"Setting {target_iface} to Static IP: 192.168.172.1")
-        print(f"Configuring DHCP Server for {target_iface} (Range: 192.168.172.2 - 192.168.172.254)")
+        print(f"Configuring {target_iface} as WAN (DHCP Client) to preserve current access.")
         
         config = load_config()
         if 'network' not in config:
@@ -53,18 +52,16 @@ def set_default_ip():
         if 'dhcp' not in config:
             config['dhcp'] = {}
             
-        # Set the network configuration
+        # Set the network configuration to WAN (DHCP)
+        # This assumes the interface is currently getting an IP via DHCP
         config['network'][target_iface] = {
-            'role': 'lan',
-            'ip': '192.168.172.1'
+            'role': 'wan',
+            'ip': '' # Empty IP implies DHCP in our config logic
         }
         
-        # Set the DHCP configuration
-        config['dhcp'][target_iface] = {
-            'enabled': True,
-            'start': '192.168.172.2',
-            'end': '192.168.172.254'
-        }
+        # Ensure DHCP server is NOT enabled on this WAN interface
+        if target_iface in config['dhcp']:
+            del config['dhcp'][target_iface]
         
         # Save triggers the generation of configs
         save_config(config)
